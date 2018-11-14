@@ -70,9 +70,8 @@ type TargetItem struct{
   Name string
 }
 
-func (t TargetItem) getTargetItems(doc *goquery.Document) string{
+func (t *TargetItem) getTargetItems(doc *goquery.Document){
   t.Name = doc.Find("div.product-title-container > h1").Text()
-  return t.Name
 }
 
 func main() {
@@ -103,9 +102,9 @@ func main() {
       // target_item
       for _, fainal_target_url := range total_item_urls{
         doc := importDoc(fainal_target_url)
-        items := TargetItem{}
-        test := items.getTargetItems(doc)
-        fmt.Println(test)
+        items := &TargetItem{}
+        items.getTargetItems(doc)
+        fmt.Println(items.Name)
       }
     }
   }
