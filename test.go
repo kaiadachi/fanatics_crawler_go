@@ -3,8 +3,8 @@ package main
 import (
   "fmt"
   "github.com/PuerkitoBio/goquery"
-  "flag"
   "strconv"
+  "sync"
 )
 
 func importDoc(url string) *goquery.Document{
@@ -22,38 +22,11 @@ func getUrlList(doc *goquery.Document, target_css string, start_url string) []st
   return urls
 }
 
-func getClubs(start_url string, target_url string, target_css string) []string{
-  doc := importDoc(target_url)
-  club_urls := getUrlList(doc, target_css, start_url)
-  return club_urls
-}
-
-func getCategories(start_url string, target_url string) []string{
-  doc := importDoc(target_url)
-  target_css := "div.allDepartmentsBoxes > ul > li > a"
-  category_urls := getUrlList(doc, target_css, start_url)
-  return category_urls
-}
-
 func getItems(start_url string, target_url string) []string{
   doc := importDoc(target_url)
   target_css := "h4.product-card-title > a"
   item_urls := getUrlList(doc, target_css, start_url)
   return item_urls
-}
-
-func countPageNum(doc *goquery.Document) int {
-  total_items_s := doc.Find("span.page-count-quantity").Text()
-  total_items, _ := strconv.Atoi(total_items_s)
-  shou := total_items/72;
-  var total_pages int
-  if amari := total_items % 72; amari != 0 {
-    total_pages = shou + 1
-  } else {
-    total_pages = shou
-  }
-
-  return total_pages
 }
 
 func getTotalItems(doc *goquery.Document, total_pages int, total_item_urls[] string, start_url string, category_url string) []string{
@@ -75,37 +48,21 @@ func (t *TargetItem) getTargetItems(doc *goquery.Document){
 }
 
 func main() {
-  flag.Parse()
-  args := flag.Args()
-  fmt.Println(args)
-
   // init_setting
   const start_url = "https://www.fanatics.com"
-  target_url := start_url + "/" + args[0]
-  target_css := ".team-list-link"
+  target_url := "https://www.fanatics.com/nfl/arizona-cardinals/accessories/o-4605+t-58482364+d-42226612+z-9-3255659524"
+  urls := getItems(start_url, target_url)
 
-  // club
-  club_urls := getClubs(start_url, target_url, target_css)
-  //fmt.Println(club_urls)
-
-  // category
-  for _, club_url := range club_urls{
-    category_urls := getCategories(start_url, club_url)
-
-    // item
-    for _, category_url := range category_urls{
-      doc := importDoc(category_url)
-      total_pages := countPageNum(doc)
-      var total_item_urls[] string
-      total_item_urls = getTotalItems(doc, total_pages, total_item_urls, start_url, category_url)
-
-      // target_item
-      for _, fainal_target_url := range total_item_urls{
-        doc := importDoc(fainal_target_url)
+    var wg sync.WaitGroup
+    for _, url := range urls{
+      wg.Add(1)
+      go func(){
+        defer wg.Done()
+        doc := importDoc(url)
         items := &TargetItem{}
-        go items.getTargetItems(doc)
+        items.getTargetItems(doc)
         fmt.Println(items.Name)
-      }
+      }()
     }
+    wg.Wait()
   }
-}
