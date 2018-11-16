@@ -5,6 +5,7 @@ import (
   "github.com/PuerkitoBio/goquery"
   "strconv"
   "sync"
+  "time"
 )
 
 func importDoc(url string) *goquery.Document{
@@ -47,22 +48,26 @@ func (t *TargetItem) getTargetItems(doc *goquery.Document){
   t.Name = doc.Find("div.product-title-container > h1").Text()
 }
 
+func try(url string, wg *sync.WaitGroup, ch chan bool){
+  doc := importDoc(url)
+  items := &TargetItem{}
+  items.getTargetItems(doc)
+  fmt.Println(items.Name)
+  wg.Done()
+  time.Sleep(5*time.Second)
+  <-ch
+}
+
 func main() {
-  // init_setting
   const start_url = "https://www.fanatics.com"
   target_url := "https://www.fanatics.com/nfl/arizona-cardinals/accessories/o-4605+t-58482364+d-42226612+z-9-3255659524"
   urls := getItems(start_url, target_url)
-
-    var wg sync.WaitGroup
-    for _, url := range urls{
-      wg.Add(1)
-      go func(){
-        defer wg.Done()
-        doc := importDoc(url)
-        items := &TargetItem{}
-        items.getTargetItems(doc)
-        fmt.Println(items.Name)
-      }()
-    }
-    wg.Wait()
+  wg := &sync.WaitGroup{}
+  ch := make(chan bool, 10)
+  for _, url := range urls{
+    wg.Add(1)
+    ch <- true
+    go try(url, wg, ch)
   }
+  wg.Wait()
+}

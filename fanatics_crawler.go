@@ -5,6 +5,8 @@ import (
   "github.com/PuerkitoBio/goquery"
   "flag"
   "strconv"
+  "sync"
+  "time"
 )
 
 func importDoc(url string) *goquery.Document{
@@ -74,6 +76,16 @@ func (t *TargetItem) getTargetItems(doc *goquery.Document){
   t.Name = doc.Find("div.product-title-container > h1").Text()
 }
 
+func doParallel(fainal_target_url string, wg *sync.WaitGroup, ch chan bool){
+  defer wg.Done()
+  doc := importDoc(fainal_target_url)
+  items := &TargetItem{}
+  items.getTargetItems(doc)
+  fmt.Println(items.Name)
+  time.Sleep(5*time.Second)
+  <-ch
+}
+
 func main() {
   flag.Parse()
   args := flag.Args()
@@ -100,12 +112,14 @@ func main() {
       total_item_urls = getTotalItems(doc, total_pages, total_item_urls, start_url, category_url)
 
       // target_item
+      wg := &sync.WaitGroup{}
+      ch := make(chan bool, 30)
       for _, fainal_target_url := range total_item_urls{
-        doc := importDoc(fainal_target_url)
-        items := &TargetItem{}
-        items.getTargetItems(doc)
-        fmt.Println(items.Name)
+        wg.Add(1)
+        ch <- true
+        go doParallel(fainal_target_url, wg, ch)
       }
+      wg.Wait()
     }
   }
 }
