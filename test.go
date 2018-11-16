@@ -6,6 +6,8 @@ import (
   "strconv"
   "sync"
   "time"
+  "github.com/nozo-moto/easyCSV"
+//  "reflect"
 )
 
 func importDoc(url string) *goquery.Document{
@@ -42,17 +44,22 @@ func getTotalItems(doc *goquery.Document, total_pages int, total_item_urls[] str
 
 type TargetItem struct{
   Name string
+  Price string
+  Maker string
 }
 
 func (t *TargetItem) getTargetItems(doc *goquery.Document){
   t.Name = doc.Find("div.product-title-container > h1").Text()
+  t.Price = doc.Find("div.regular-price").First().Text()
+  t.Maker = doc.Find("div.product-details-container > div.description-box-content > ul > li:first-child").Text()
 }
 
-func try(url string, wg *sync.WaitGroup, ch chan bool){
+func try(url string, wg *sync.WaitGroup, ch chan bool, output *[][]string){
   doc := importDoc(url)
   items := &TargetItem{}
   items.getTargetItems(doc)
-  fmt.Println(items.Name)
+  row := []string{ items.Name, items.Price, items.Maker }
+  *output = append(*output, row)
   wg.Done()
   time.Sleep(5*time.Second)
   <-ch
@@ -62,12 +69,18 @@ func main() {
   const start_url = "https://www.fanatics.com"
   target_url := "https://www.fanatics.com/nfl/arizona-cardinals/accessories/o-4605+t-58482364+d-42226612+z-9-3255659524"
   urls := getItems(start_url, target_url)
+  var output [][]string
+  ch := make(chan bool, 40)
   wg := &sync.WaitGroup{}
-  ch := make(chan bool, 10)
   for _, url := range urls{
     wg.Add(1)
     ch <- true
-    go try(url, wg, ch)
+    go try(url, wg, ch, &output)
   }
   wg.Wait()
+  fmt.Println(output)
+  name := "test"
+  easyCSV.ExportCSV(output, name)
+  time.Sleep(20*time.Second)
+  fmt.Println("ok")
 }
